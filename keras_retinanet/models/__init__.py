@@ -51,6 +51,8 @@ def backbone(backbone_name):
     """
     if 'resnet' in backbone_name:
         from .resnet import ResNetBackbone as b
+    elif 'mobilenet_v2' in backbone_name:
+        from .mobilenet_v2 import MobileNetBackbone as b
     elif 'mobilenet' in backbone_name:
         from .mobilenet import MobileNetBackbone as b
     elif 'vgg' in backbone_name:

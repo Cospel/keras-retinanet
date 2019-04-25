@@ -46,8 +46,11 @@ class Generator(keras.utils.Sequence):
         batch_size=1,
         group_method='ratio',  # one of 'none', 'random', 'ratio'
         shuffle_groups=True,
+        resizer='keep_aspect_ratio_resizer',
         image_min_side=800,
         image_max_side=1333,
+        height=800,
+        width=800,
         transform_parameters=None,
         compute_anchor_targets=anchor_targets_bbox,
         compute_shapes=guess_shapes,
@@ -61,8 +64,13 @@ class Generator(keras.utils.Sequence):
             batch_size             : The size of the batches to generate.
             group_method           : Determines how images are grouped together (defaults to 'ratio', one of ('none', 'random', 'ratio')).
             shuffle_groups         : If True, shuffles the groups each epoch.
+            resizer                : Default 'keep_aspect_ratio_resizer' with image_min_side and image_max_side.
+                                     Optional 'fixed_shape_resizer' with height and min. 
+                                     Optional 'random_resizer' which randomly switch from aspect and fixed.
             image_min_side         : After resizing the minimum side of an image is equal to image_min_side.
             image_max_side         : If after resizing the maximum side is larger than image_max_side, scales down further so that the max side is equal to image_max_side.
+            height                 : If 'fixed_shaper_resizer' than set height of every image to this value.
+            width                  : If 'fixed_shaper_resizer' than set width of every image to this value.
             transform_parameters   : The transform parameters used for data augmentation.
             compute_anchor_targets : Function handler for computing the targets of anchors for an image and its annotations.
             compute_shapes         : Function handler for computing the shapes of the pyramid for a given input.
@@ -71,9 +79,12 @@ class Generator(keras.utils.Sequence):
         self.transform_generator    = transform_generator
         self.batch_size             = int(batch_size)
         self.group_method           = group_method
+        self.resizer                = resizer
         self.shuffle_groups         = shuffle_groups
         self.image_min_side         = image_min_side
         self.image_max_side         = image_max_side
+        self.height                 = height
+        self.width                  = width
         self.transform_parameters   = transform_parameters or TransformParameters()
         self.compute_anchor_targets = compute_anchor_targets
         self.compute_shapes         = compute_shapes
@@ -212,7 +223,7 @@ class Generator(keras.utils.Sequence):
     def resize_image(self, image):
         """ Resize an image using image_min_side and image_max_side.
         """
-        return resize_image(image, min_side=self.image_min_side, max_side=self.image_max_side)
+        return resize_image(image, resizer=self.resizer, min_side=self.image_min_side, max_side=self.image_max_side, height=self.height, width=self.width)
 
     def preprocess_group_entry(self, image, annotations):
         """ Preprocess image and its annotations.
@@ -221,11 +232,23 @@ class Generator(keras.utils.Sequence):
         image = self.preprocess_image(image)
 
         # resize image
-        image, image_scale = self.resize_image(image)
-
+        old_shape = image.shape
+        image, image_scale_h, image_scale_w = self.resize_image(image)
+        
         # apply resizing to annotations too
-        annotations['bboxes'] *= image_scale
-
+        #print("")
+        #print(old_shape, image.shape, image_scale_h, image_scale_w)
+        #print(annotations)
+#        if image_scale_h == image_scale_w:
+#            annotations['bboxes'] *= image_scale_h
+#        else:
+        for i in range(len(annotations['bboxes'])):
+            annotations['bboxes'][i][0] = int(annotations['bboxes'][i][0] * image_scale_w)
+            annotations['bboxes'][i][1] = int(annotations['bboxes'][i][1] * image_scale_h)
+            annotations['bboxes'][i][2] = int(annotations['bboxes'][i][2] * image_scale_w)
+            annotations['bboxes'][i][3] = int(annotations['bboxes'][i][3] * image_scale_h)
+        #print(annotations)
+        #print('----')
         # convert to the wanted keras floatx
         image = keras.backend.cast_to_floatx(image)
 
@@ -332,5 +355,4 @@ class Generator(keras.utils.Sequence):
         """
         group = self.groups[index]
         inputs, targets = self.compute_input_output(group)
-
         return inputs, targets

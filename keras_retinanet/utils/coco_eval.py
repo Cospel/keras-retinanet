@@ -38,7 +38,7 @@ def evaluate_coco(generator, model, threshold=0.05):
     for index in progressbar.progressbar(range(generator.size()), prefix='COCO evaluation: '):
         image = generator.load_image(index)
         image = generator.preprocess_image(image)
-        image, scale = generator.resize_image(image)
+        image, scale_h, scale_w = generator.resize_image(image)
 
         if keras.backend.image_data_format() == 'channels_first':
             image = image.transpose((2, 0, 1))
@@ -47,7 +47,11 @@ def evaluate_coco(generator, model, threshold=0.05):
         boxes, scores, labels = model.predict_on_batch(np.expand_dims(image, axis=0))
 
         # correct boxes for image scale
-        boxes /= scale
+        for t in range(len(boxes[0])):
+            boxes[0][t][0] /= scale_w
+            boxes[0][t][1] /= scale_h
+            boxes[0][t][2] /= scale_w
+            boxes[0][t][3] /= scale_h
 
         # change to (x, y, w, h) (MS COCO standard)
         boxes[:, :, 2] -= boxes[:, :, 0]

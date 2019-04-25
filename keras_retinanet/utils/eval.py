@@ -75,7 +75,7 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
     for i in progressbar.progressbar(range(generator.size()), prefix='Running network: '):
         raw_image    = generator.load_image(i)
         image        = generator.preprocess_image(raw_image.copy())
-        image, scale = generator.resize_image(image)
+        image, scale_h, scale_w = generator.resize_image(image)
 
         if keras.backend.image_data_format() == 'channels_first':
             image = image.transpose((2, 0, 1))
@@ -84,7 +84,11 @@ def _get_detections(generator, model, score_threshold=0.05, max_detections=100, 
         boxes, scores, labels = model.predict_on_batch(np.expand_dims(image, axis=0))[:3]
 
         # correct boxes for image scale
-        boxes /= scale
+        for t in range(len(boxes[0])):
+            boxes[0][t][0] /= scale_w
+            boxes[0][t][1] /= scale_h
+            boxes[0][t][2] /= scale_w
+            boxes[0][t][3] /= scale_h
 
         # select indices which have a score above the threshold
         indices = np.where(scores[0, :] > score_threshold)[0]

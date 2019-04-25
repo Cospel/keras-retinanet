@@ -17,9 +17,14 @@ limitations under the License.
 from __future__ import division
 import numpy as np
 import cv2
+import random
 from PIL import Image
 
 from .transform import change_transform_origin
+
+ASPECT_RESIZER = "keep_aspect_ratio_resizer"
+FIXED_RESIZER = "fixed_shaper_resizer"
+RANDOM_RESIZER = "random_resizer"
 
 
 def read_image_bgr(path):
@@ -175,10 +180,17 @@ def compute_resize_scale(image_shape, min_side=800, max_side=1333):
     if largest_side * scale > max_side:
         scale = max_side / largest_side
 
-    return scale
+    return scale, scale
 
+def compute_resize_fixed(image_shape, height, width):
+    (rows, cols, _) = image_shape
 
-def resize_image(img, min_side=800, max_side=1333):
+    scale_h = rows/height
+    scale_w = cols/width
+
+    return 1.0/scale_h, 1.0/scale_w
+
+def resize_image(img, resizer, min_side=800, max_side=1333, height=800, width=800):
     """ Resize an image such that the size is constrained to min_side and max_side.
 
     Args
@@ -188,10 +200,17 @@ def resize_image(img, min_side=800, max_side=1333):
     Returns
         A resized image.
     """
-    # compute scale to resize the image
-    scale = compute_resize_scale(img.shape, min_side=min_side, max_side=max_side)
+    if resizer == ASPECT_RESIZER:
+        scale_h, scale_w = compute_resize_scale(img.shape, min_side=min_side, max_side=max_side)
+    elif resizer == FIXED_RESIZER:
+        scale_h, scale_w = compute_resize_fixed(img.shape, height, width)
+    elif resizer == RANDOM_RESIZER:
+        return resize_image(img, random.choice([ASPECT_RESIZER, FIXED_RESIZER]),
+                            min_side, max_side,
+                            random.randint(min_side, max_side),
+                            random.randint(min_side, max_side))
+    else:
+        raise Exception(resizer + " is not implemented.")
 
-    # resize the image with the computed scale
-    img = cv2.resize(img, None, fx=scale, fy=scale)
-
-    return img, scale
+    img = cv2.resize(img, None, fx=scale_w, fy=scale_h)
+    return img, scale_h, scale_w
