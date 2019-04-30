@@ -91,6 +91,7 @@ class Generator(keras.utils.Sequence):
         self.preprocess_image       = preprocess_image
         self.config                 = config
 
+        print("Generator: ", self.image_min_side, self.image_max_side, self.height, self.width, self.resizer, preprocess_image)
         # Define groups
         self.group_images()
 
@@ -234,7 +235,8 @@ class Generator(keras.utils.Sequence):
         # resize image
         old_shape = image.shape
         image, image_scale_h, image_scale_w = self.resize_image(image)
-        
+        #print(old_shape, image.shape, image_scale_h, image_scale_w)
+ 
         # apply resizing to annotations too
         #print("")
         #print(old_shape, image.shape, image_scale_h, image_scale_w)
@@ -242,11 +244,13 @@ class Generator(keras.utils.Sequence):
 #        if image_scale_h == image_scale_w:
 #            annotations['bboxes'] *= image_scale_h
 #        else:
+        #print(annotations)
         for i in range(len(annotations['bboxes'])):
             annotations['bboxes'][i][0] = int(annotations['bboxes'][i][0] * image_scale_w)
             annotations['bboxes'][i][1] = int(annotations['bboxes'][i][1] * image_scale_h)
             annotations['bboxes'][i][2] = int(annotations['bboxes'][i][2] * image_scale_w)
             annotations['bboxes'][i][3] = int(annotations['bboxes'][i][3] * image_scale_h)
+        #print(annotations)
         #print(annotations)
         #print('----')
         # convert to the wanted keras floatx
@@ -293,7 +297,7 @@ class Generator(keras.utils.Sequence):
 
         if keras.backend.image_data_format() == 'channels_first':
             image_batch = image_batch.transpose((0, 3, 1, 2))
-
+        #print(image_batch.shape, max_shape)
         return image_batch
 
     def generate_anchors(self, image_shape):

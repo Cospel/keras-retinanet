@@ -23,7 +23,7 @@ from . import retinanet
 from . import Backbone
 
 
-class MobileNetBackbone(Backbone):
+class MobileNetV2Backbone(Backbone):
     """ Describes backbone information and provides utility functions.
     """
 
@@ -63,8 +63,8 @@ class MobileNetBackbone(Backbone):
         """
         backbone = self.backbone.split('_')[0]
 
-        if backbone not in MobileNetBackbone.allowed_backbones:
-            raise ValueError('Backbone (\'{}\') not in allowed backbones ({}).'.format(backbone, MobileNetBackbone.allowed_backbones))
+        if backbone not in MobileNetV2Backbone.allowed_backbones:
+            raise ValueError('Backbone (\'{}\') not in allowed backbones ({}).'.format(backbone, MobileNetV2Backbone.allowed_backbones))
 
     def preprocess_image(self, inputs):
         """ Takes as input an image and prepares it for being passed through the network.
@@ -72,7 +72,7 @@ class MobileNetBackbone(Backbone):
         return preprocess_image(inputs, mode='tf')
 
 
-def mobilenet2_retinanet(num_classes, backbone='mobilenet_v2_224_1.0', inputs=None, modifier=None, **kwargs):
+def mobilenet2_retinanet(num_classes, backbone='mobilenet_v2_224_1.0', inputs=None, modifier=None, size=None, **kwargs):
     """ Constructs a retinanet model using a mobilenet backbone.
 
     Args
@@ -80,6 +80,7 @@ def mobilenet2_retinanet(num_classes, backbone='mobilenet_v2_224_1.0', inputs=No
         backbone: Which backbone to use (one of ('mobilenet_v2_224_1.0')).
         inputs: The inputs to the network (defaults to a Tensor of shape (None, None, 3)).
         modifier: A function handler which can modify the backbone before using it in retinanet (this can be used to freeze backbone layers for example).
+        size: without this the model will not converge
 
     Returns
         RetinaNet model with a MobileNet backbone.
@@ -90,18 +91,18 @@ def mobilenet2_retinanet(num_classes, backbone='mobilenet_v2_224_1.0', inputs=No
 
     # choose default input
     if inputs is None:
-        inputs = keras.layers.Input((None, None, 3))
+        if keras.backend.image_data_format() == 'channels_first':
+            inputs = keras.layers.Input(shape=(3, size, size))
+        else:
+            inputs = keras.layers.Input(shape=(size, size, 3))
 
     if modifier is not None:
         print("Having modifier:" + str(modifier))
 
     backbone = mobilenet_v2.MobileNetV2(input_tensor=inputs, alpha=alpha, include_top=False, pooling=None, weights='imagenet')
-    #for i in range(len(backbone.layers)):
-    #    print('layer:', backbone.layers[i].name)
-    #print('=========')
-    #backbone.summary()
 
     # create the full model
+    #layer_names = ['block_5_depthwise_relu', 'block_12_depthwise_relu', 'out_relu']
     layer_names = ['block_5_add', 'block_12_add', 'out_relu']
     layer_outputs = [backbone.get_layer(name).output for name in layer_names]
     backbone = keras.models.Model(inputs=inputs, outputs=layer_outputs, name=backbone.name)
