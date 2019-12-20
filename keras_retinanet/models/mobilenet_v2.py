@@ -18,6 +18,7 @@ import keras
 from keras.applications import mobilenet_v2
 from keras.utils import get_file
 from ..utils.image import preprocess_image
+from .. import layers
 
 from . import retinanet
 from . import Backbone
@@ -99,7 +100,9 @@ def mobilenet2_retinanet(num_classes, backbone='mobilenet_v2_224_1.0', inputs=No
     if modifier is not None:
         print("Having modifier:" + str(modifier))
 
-    backbone = mobilenet_v2.MobileNetV2(input_tensor=inputs, alpha=alpha, include_top=False, pooling=None, weights='imagenet')
+    # fix the batchnorms
+    keras.layers.BatchNormalization = layers.BatchNormalization
+    backbone = mobilenet_v2.MobileNetV2(input_tensor=inputs, alpha=alpha, include_top=False, pooling=None, weights='imagenet', layers=keras.layers)
 
     # create the full model
     #layer_names = ['block_5_depthwise_relu', 'block_12_depthwise_relu', 'out_relu']
